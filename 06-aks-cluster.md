@@ -10,6 +10,7 @@ Now that your [ACR instance is deployed and ready to support cluster bootstrappi
 
    ```bash
    GITOPS_REPOURL=$(git config --get remote.origin.url)
+   echo GITOPS_REPOURL: $GITOPS_REPOURL
    ```
 
 1. Deploy the cluster ARM template.
@@ -19,7 +20,7 @@ Now that your [ACR instance is deployed and ready to support cluster bootstrappi
 
    ```bash
    # [This takes about 18 minutes.]
-   az deployment group create -g rg-bu0001a0008 -f cluster-stamp.json -p targetVnetResourceId=${RESOURCEID_VNET_CLUSTERSPOKE_AKS_BASELINE} clusterAdminAadGroupObjectId=${AADOBJECTID_GROUP_CLUSTERADMIN_AKS_BASELINE} a0008NamespaceReaderAadGroupObjectId=${AADOBJECTID_GROUP_A0008_READER_AKS_BASELINE} k8sControlPlaneAuthorizationTenantId=${TENANTID_K8SRBAC_AKS_BASELINE} appGatewayListenerCertificate=${APP_GATEWAY_LISTENER_CERTIFICATE_AKS_BASELINE} aksIngressControllerCertificate=${AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64_AKS_BASELINE} domainName=${DOMAIN_NAME_AKS_BASELINE} gitOpsBootstrappingRepoHttpsUrl=${GITOPS_REPOURL}
+   az deployment group create -g ${PREFIX_AKS_BASELINE}-rg-bu0001a0008 -f cluster-stamp.json -p location=${TARGET_REGION_AKS_BASELINE} prefix=${PREFIX_AKS_BASELINE} targetVnetResourceId=${RESOURCEID_VNET_CLUSTERSPOKE_AKS_BASELINE} clusterAdminAadGroupObjectId=${AADOBJECTID_GROUP_CLUSTERADMIN_AKS_BASELINE} a0008NamespaceReaderAadGroupObjectId=${AADOBJECTID_GROUP_A0008_READER_AKS_BASELINE} k8sControlPlaneAuthorizationTenantId=${TENANTID_K8SRBAC_AKS_BASELINE} appGatewayListenerCertificate=${APP_GATEWAY_LISTENER_CERTIFICATE_AKS_BASELINE} aksIngressControllerCertificate=${AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64_AKS_BASELINE} domainName=${DOMAIN_NAME_AKS_BASELINE} gitOpsBootstrappingRepoHttpsUrl=${GITOPS_REPOURL}
    ```
 
    > Alteratively, you could have updated the [`azuredeploy.parameters.prod.json`](./azuredeploy.parameters.prod.json) file and deployed as above, using `-p "@azuredeploy.parameters.prod.json"` instead of providing the individual key-value pairs.
@@ -36,6 +37,7 @@ Now that your [ACR instance is deployed and ready to support cluster bootstrappi
        # Federated Identity, see https://github.com/Azure/login#configure-deployment-credentials.
        az ad sp create-for-rbac --name "github-workflow-aks-cluster" --sdk-auth --skip-assignment > sp.json
        export APP_ID=$(grep -oP '(?<="clientId": ").*?[^\\](?=",)' sp.json)
+       echo APP_ID: $APP_ID
 
        # Wait for propagation
        until az ad sp show --id ${APP_ID} &> /dev/null ; do echo "Waiting for Azure AD propagation" && sleep 5; done
