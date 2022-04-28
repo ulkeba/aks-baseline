@@ -46,6 +46,12 @@
                 "description": "IP ranges authorized to contact the Kubernetes API server. Passing an empty array will result in no IP restrictions. If any are provided, remember to also provide the public IP of the egress Azure Firewall otherwise your nodes will not be able to talk to the API server (e.g. Flux)."
             }
         },
+        "prefix": {
+            "type": "string",
+            "metadata": {
+                "description": "The name prefix for this stamp."
+            }
+        },
         "location": {
             "defaultValue": "eastus2",
             "type": "string",
@@ -111,11 +117,11 @@
         "serviceClusterUserRoleId": "4abbcc35-e782-43d8-92c5-2d3f1bd2253f",
         "subRgUniqueString": "[uniqueString('aks', subscription().subscriptionId, resourceGroup().id)]",
 
-        "nodeResourceGroupName": "[concat('rg-', variables('clusterName'), '-nodepools')]",
-        "clusterName": "[concat('aks-', variables('subRgUniqueString'))]",
-        "logAnalyticsWorkspaceName": "[concat('la-', variables('clusterName'))]",
+        "nodeResourceGroupName": "[concat(parameters('prefix'), '-rg-', variables('clusterName'), '-nodepools')]",
+        "clusterName": "[concat(parameters('prefix'), '-aks-', variables('subRgUniqueString'))]",
+        "logAnalyticsWorkspaceName": "[concat(parameters('prefix'), '-la-aks-', variables('subRgUniqueString'))]",
         "containerInsightsSolutionName": "[concat('ContainerInsights(', variables('logAnalyticsWorkspaceName'),')')]",
-        "defaultAcrName": "[concat('acraks', variables('subRgUniqueString'))]",
+        "defaultAcrName": "[concat(parameters('prefix'), 'acraks', variables('subRgUniqueString'))]",
 
         "vNetResourceGroup": "[split(parameters('targetVnetResourceId'),'/')[4]]",
         "vnetName": "[split(parameters('targetVnetResourceId'),'/')[8]]",
@@ -123,13 +129,15 @@
         "vnetPrivateLinkEndpointsSubnetResourceId": "[concat(parameters('targetVnetResourceId'), '/subnets/snet-privatelinkendpoints')]",
         "vnetIngressServicesSubnetResourceId": "[concat(parameters('targetVnetResourceId'), '/subnets/snet-cluster-ingressservices')]",
 
-        "agwName": "[concat('apw-', variables('clusterName'))]",
+        "agwName": "[concat(parameters('prefix'), '-apw-', variables('subRgUniqueString'))]",
 
         "akvPrivateDnsZonesName": "privatelink.vaultcore.azure.net",
 
-        "clusterControlPlaneIdentityName": "[concat('mi-', variables('clusterName'), '-controlplane')]",
+        "clusterControlPlaneIdentityName": "[concat(parameters('prefix'), '-mi-', variables('clusterName'), '-controlplane')]",
+        "appGwFrontendIdentityName": "[concat(parameters('prefix'), '-mi-appgateway-frontend')]",
+        "ingressControllerIdentityName": "[concat(parameters('prefix'), '-podmi-ingress-controller')]",
 
-        "keyVaultName": "[concat('kv-', variables('clusterName'))]",
+        "keyVaultName": "[concat(parameters('prefix'), '-kv-', variables('subRgUniqueString'))]",
 
         "aksIngressDomainName": "[concat('aks-ingress.', parameters('domainName'))]",
         "aksBackendDomainName": "[concat('bu0001a0008-00.', variables('aksIngressDomainName'))]",
@@ -161,14 +169,14 @@
         {
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
-            "name": "mi-appgateway-frontend",
+            "name": "[variables('appGwFrontendIdentityName')]",
             "location": "[parameters('location')]",
             "comments": "User Managed Identity that App Gateway is assigned. Used for Azure Key Vault Access."
         },
         {
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
-            "name": "podmi-ingress-controller",
+            "name": "[variables('ingressControllerIdentityName')]",
             "location": "[parameters('location')]",
             "comments": "User Managed Identity for the cluster's ingress controller pods. Used for Azure Key Vault Access."
         },
@@ -178,8 +186,8 @@
             "name": "[variables('keyVaultName')]",
             "location": "[parameters('location')]",
             "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'mi-appgateway-frontend')]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'podmi-ingress-controller')]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appGwFrontendIdentityName'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('ingressControllerIdentityName'))]"
             ],
             "properties": {
                 "accessPolicies": [], // Azure RBAC is used instead
@@ -249,60 +257,60 @@
                 {
                     "type": "providers/roleAssignments",
                     "apiVersion": "2020-04-01-preview",
-                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, 'mi-appgateway-frontend', variables('keyVaultSecretsUserRole')))]",
+                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, variables('appGwFrontendIdentityName'), variables('keyVaultSecretsUserRole')))]",
                     "dependsOn": [
                         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'mi-appgateway-frontend')]"
+                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appGwFrontendIdentityName'))]"
                     ],
                     "comments": "Grant the Azure Application Gateway managed identity with key vault reader role permissions; this allows pulling frontend and backend certificates.",
                     "properties": {
                         "roleDefinitionId": "[variables('keyVaultSecretsUserRole')]",
-                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'mi-appgateway-frontend')).principalId]",
+                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appGwFrontendIdentityName'))).principalId]",
                         "principalType": "ServicePrincipal"
                     }
                 },
                 {
                     "type": "providers/roleAssignments",
                     "apiVersion": "2020-04-01-preview",
-                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, 'mi-appgateway-frontend', variables('keyVaultReader')))]",
+                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, variables('appGwFrontendIdentityName'), variables('keyVaultReader')))]",
                     "dependsOn": [
                         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'mi-appgateway-frontend')]"
+                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appGwFrontendIdentityName'))]"
                     ],
                     "comments": "Grant the Azure Application Gateway managed identity with key vault reader role permissions; this allows pulling frontend and backend certificates.",
                     "properties": {
                         "roleDefinitionId": "[variables('keyVaultReader')]",
-                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'mi-appgateway-frontend')).principalId]",
+                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appGwFrontendIdentityName'))).principalId]",
                         "principalType": "ServicePrincipal"
                     }
                 },
                 {
                     "type": "providers/roleAssignments",
                     "apiVersion": "2020-04-01-preview",
-                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, 'podmi-ingress-controller', variables('keyVaultSecretsUserRole')))]",
+                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, variables('ingressControllerIdentityName'), variables('keyVaultSecretsUserRole')))]",
                     "dependsOn": [
                         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'podmi-ingress-controller')]"
+                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('ingressControllerIdentityName'))]"
                     ],
                     "comments": "Grant the AKS cluster ingress controller pod managed identity with key vault reader role permissions; this allows our ingress controller to pull certificates.",
                     "properties": {
                         "roleDefinitionId": "[variables('keyVaultSecretsUserRole')]",
-                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'podmi-ingress-controller')).principalId]",
+                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('ingressControllerIdentityName'))).principalId]",
                         "principalType": "ServicePrincipal"
                     }
                 },
                 {
                     "type": "providers/roleAssignments",
                     "apiVersion": "2020-04-01-preview",
-                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, 'podmi-ingress-controller', variables('keyVaultReader')))]",
+                    "name": "[concat('Microsoft.Authorization/', guid(resourceGroup().id, variables('ingressControllerIdentityName'), variables('keyVaultReader')))]",
                     "dependsOn": [
                         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'podmi-ingress-controller')]"
+                        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('ingressControllerIdentityName'))]"
                     ],
                     "comments": "Grant the AKS cluster ingress controller pod managed identity with key vault reader role permissions; this allows our ingress controller to pull certificates.",
                     "properties": {
                         "roleDefinitionId": "[variables('keyVaultReader')]",
-                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'podmi-ingress-controller')).principalId]",
+                        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('ingressControllerIdentityName'))).principalId]",
                         "principalType": "ServicePrincipal"
                     }
                 }
@@ -311,7 +319,7 @@
         {
             "type": "Microsoft.Network/privateEndpoints",
             "apiVersion": "2020-05-01",
-            "name": "[concat('pe-', variables('keyVaultName'))]",
+            "name": "[concat(parameters('prefix'), '-pe-', variables('keyVaultName'))]",
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
@@ -339,7 +347,7 @@
                     "name": "default",
                     "location": "[parameters('location')]",
                     "dependsOn": [
-                        "[resourceId('Microsoft.Network/privateEndpoints', concat('pe-', variables('keyVaultName')))]",
+                        "[resourceId('Microsoft.Network/privateEndpoints', concat(parameters('prefix'), '-pe-', variables('keyVaultName')))]",
                         "[resourceId('Microsoft.Network/privateDnsZones', variables('akvPrivateDnsZonesName'))]"
                     ],
                     "properties": {
@@ -428,14 +436,14 @@
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-                "[resourceId('Microsoft.Network/privateEndpoints', concat('pe-', variables('keyVaultName')))]",
-                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, 'mi-appgateway-frontend', variables('keyVaultReader')))]",
-                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, 'mi-appgateway-frontend', variables('keyVaultSecretsUserRole')))]"
+                "[resourceId('Microsoft.Network/privateEndpoints', concat(parameters('prefix'), '-pe-', variables('keyVaultName')))]",
+                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, variables('appGwFrontendIdentityName'), variables('keyVaultReader')))]",
+                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, variables('appGwFrontendIdentityName'), variables('keyVaultSecretsUserRole')))]"
             ],
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',  'mi-appgateway-frontend')]": {}
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',  variables('appGwFrontendIdentityName'))]": {}
                 }
             },
             "zones": "[pickZones('Microsoft.Network', 'applicationGateways', parameters('location'), 3)]",
@@ -475,7 +483,7 @@
                         "name": "apw-frontend-ip-configuration",
                         "properties": {
                             "PublicIPAddress": {
-                                "id": "[resourceId(subscription().subscriptionId, variables('vNetResourceGroup'), 'Microsoft.Network/publicIpAddresses', 'pip-BU0001A0008-00')]"
+                                "id": "[resourceId(subscription().subscriptionId, variables('vNetResourceGroup'), 'Microsoft.Network/publicIpAddresses', concat(parameters('prefix'), '-pip-BU0001A0008-00'))]"
                             }
                         }
                     }
@@ -848,9 +856,9 @@
                 "[resourceId('Microsoft.Authorization/policyAssignments', variables('policyAssignmentNameEnforceResourceLimits'))]",
                 "[resourceId('Microsoft.Authorization/policyAssignments', variables('policyAssignmentNameRoRootFilesystem'))]",
                 "[resourceId('Microsoft.Authorization/policyAssignments', variables('policyAssignmentNameEnforceDefenderInCluster'))]",
-                "[resourceId('Microsoft.Network/privateEndpoints', concat('pe-', variables('keyVaultName')))]",
-                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, 'podmi-ingress-controller', variables('keyVaultReader')))]",
-                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, 'podmi-ingress-controller', variables('keyVaultSecretsUserRole')))]"
+                "[resourceId('Microsoft.Network/privateEndpoints', concat(parameters('prefix'), '-pe-', variables('keyVaultName')))]",
+                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, variables('ingressControllerIdentityName'), variables('keyVaultReader')))]",
+                "[resourceId('Microsoft.KeyVault/vaults/providers/roleAssignments', variables('keyVaultName'), 'Microsoft.Authorization', guid(resourceGroup().id, variables('ingressControllerIdentityName'), variables('keyVaultSecretsUserRole')))]"
             ],
             "properties": {
                 "kubernetesVersion": "[parameters('kubernetesVersion')]",
@@ -1843,7 +1851,7 @@
         {
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities/providers/roleAssignments",
             "apiVersion": "2020-04-01-preview",
-            "name": "[concat('podmi-ingress-controller', '/Microsoft.Authorization/', guid(resourceGroup().id, 'podmi-ingress-controller', variables('managedIdentityOperatorRole')))]",
+            "name": "[concat(variables('ingressControllerIdentityName'), '/Microsoft.Authorization/', guid(resourceGroup().id, variables('ingressControllerIdentityName'), variables('managedIdentityOperatorRole')))]",
             "comments": "Grant the AKS cluster with Managed Identity Operator role permissions over the managed identity used for the ingress controller. Allows it to be assigned to the underlying VMSS.",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
@@ -2021,11 +2029,11 @@
         },
         "aksIngressControllerPodManagedIdentityResourceId": {
             "type": "string",
-            "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'podmi-ingress-controller')]"
+            "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('ingressControllerIdentityName'))]"
         },
         "aksIngressControllerPodManagedIdentityClientId": {
             "type": "string",
-            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities','podmi-ingress-controller'), '2018-11-30').clientId]"
+            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',variables('ingressControllerIdentityName')), '2018-11-30').clientId]"
         },
         "keyVaultName": {
             "type": "string",
