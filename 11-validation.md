@@ -14,7 +14,7 @@ This section will help you to validate the workload is exposed correctly and res
 
    ```bash
    # query the Azure Application Gateway Public Ip
-   APPGW_PUBLIC_IP=$(az deployment group show --resource-group rg-enterprise-networking-spokes -n spoke-BU0001A0008 --query properties.outputs.appGwPublicIpAddress.value -o tsv)
+   APPGW_PUBLIC_IP=$(az deployment group show --resource-group ${PREFIX_AKS_BASELINE}-rg-enterprise-networking-spokes -n spoke-BU0001A0008 --query properties.outputs.appGwPublicIpAddress.value -o tsv)
    echo APPGW_PUBLIC_IP: $APPGW_PUBLIC_IP
    ```
 
@@ -89,7 +89,7 @@ Azure Monitor is configured to [scrape Prometheus metrics](https://docs.microsof
 
 ### Steps
 
-1. In the Azure Portal, navigate to your AKS cluster resource group (`rg-bu0001a0008`).
+1. In the Azure Portal, navigate to your AKS cluster resource group (`[your prefix]-rg-bu0001a0008`).
 1. Select your Log Analytic Workspace resource and open the _Logs_ blade.
 1. Find the one of the above queries in the _Containers_ category.
 1. You are able to select and execute the saved query over the scraped metrics.
@@ -100,7 +100,7 @@ The example workload uses the standard dotnet logger interface, which are captur
 
 ### Steps
 
-1. In the Azure Portal, navigate to your AKS cluster resource group (`rg-bu0001a0008`).
+1. In the Azure Portal, navigate to your AKS cluster resource group (`[your prefix]-rg-bu0001a0008`).
 1. Select your Log Analytic Workspace resource and open the _Logs_ blade.
 1. Execute the following query
 
@@ -126,19 +126,19 @@ Azure will generate alerts on the health of your cluster and adjacent resources.
 
 An alert based on [Azure Monitor for containers information using a Kusto query](https://docs.microsoft.com/azure/azure-monitor/insights/container-insights-alerts) was configured in this reference implementation.
 
-1. In the Azure Portal, navigate to your AKS cluster resource group (`rg-bu0001a0008`).
-1. Select _Alerts_, then _Alert Rules_.
+1. In the Azure Portal, navigate to your AKS cluster resource group (`[your prefix]-rg-bu0001a0008`).
+1. Select _Alerts_, then _Manage Rule Alerts_.
 1. There is an alert titled "[your cluster name] Scheduled Query for Pod Failed Alert" that will be triggered based on the custom query response.
 
 An [Azure Advisor Alert](https://docs.microsoft.com/azure/advisor/advisor-overview) was configured as well in this reference implementation.
 
-1. In the Azure Portal, navigate to your AKS cluster resource group (`rg-bu0001a0008`).
+1. In the Azure Portal, navigate to your AKS cluster resource group (`[your prefix]-rg-bu0001a0008`).
 1. Select _Alerts_, then _Alert Rules_.
 1. There is an alert called "AllAzureAdvisorAlert" that will be triggered based on new Azure Advisor alerts.
 
 A series of metric alerts were configured as well in this reference implementation.
 
-1. In the Azure Portal, navigate to your AKS cluster resource group (`rg-bu0001a0008`).
+1. In the Azure Portal, navigate to your AKS cluster resource group (`[your prefix]-rg-bu0001a0008`).
 1. Select your cluster, then _Insights_.
 1. Select _Recommended alerts_ to see those enabled. (Feel free to enable/disable as you see fit.)
 
@@ -148,7 +148,7 @@ If you configured your third-party images to be pulled from your Azure Container
 
 ### Steps
 
-1. In the Azure Portal, navigate to your AKS cluster resource group (`rg-bu0001a0008`) and then your Azure Container Registry instances (starts with `acraks`).
+1. In the Azure Portal, navigate to your AKS cluster resource group (`[your prefix]-rg-bu0001a0008`) and then your Azure Container Registry instances (starts with `acraks`).
 1. Select _Logs_.
 1. Execute the following query, for whatever time range is appropriate.
 
