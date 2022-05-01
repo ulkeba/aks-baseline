@@ -101,7 +101,7 @@ The following two resource groups will be created and populated with networking 
 
    ```bash
    RESOURCEID_SUBNET_NODEPOOLS=$(az deployment group show -g ${PREFIX_AKS_BASELINE}-rg-enterprise-networking-spokes -n spoke-BU0001A0008 --query properties.outputs.nodepoolSubnetResourceIds.value -o json)
-   echo RESOURCEID_VNET_HUB: $RESOURCEID_SUBNET_NODEPOOLS
+   echo RESOURCEID_SUBNET_NODEPOOLS: $RESOURCEID_SUBNET_NODEPOOLS
 
    # [This takes about ten minutes to run.]
    az deployment group create -g ${PREFIX_AKS_BASELINE}-rg-enterprise-networking-hubs -f networking/hub-regionA.bicep -p prefix=${PREFIX_AKS_BASELINE} -p location=${TARGET_REGION_AKS_BASELINE} -p nodepoolSubnetResourceIds="${RESOURCEID_SUBNET_NODEPOOLS}"
