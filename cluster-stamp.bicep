@@ -66,7 +66,7 @@ var subRgUniqueString = uniqueString('aks', subscription().subscriptionId, resou
 var clusterName = '${prefix}-aks-${subRgUniqueString}'
 var nodeResourceGroupName = '${prefix}-rg-${clusterName}-nodepools'
 var defaultAcrName = '${prefix}acraks${subRgUniqueString}'
-var laName = '${prefix}-la-${clusterName}'
+var laName = '${prefix}-la-aks-${subRgUniqueString}'
 
 var agwName = '${prefix}-apw-${subRgUniqueString}'
 var wafPolicyName = '${prefix}-waf-${subRgUniqueString}'
